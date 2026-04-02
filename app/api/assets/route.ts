@@ -1,102 +1,110 @@
-import { createClient } from "@/lib/supabase/server"
+import { put, list, del } from "@vercel/blob"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET() {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from("assets")
-    .select("*")
-    .order("created_at", { ascending: false })
+  try {
+    const { blobs } = await list()
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // Transform blob data to match the Asset interface expected by the frontend
+    const assets = blobs.map((blob) => {
+      // Extract category and description from pathname (format: category/timestamp-random.ext)
+      const pathParts = blob.pathname.split("/")
+      const category = pathParts.length > 1 ? pathParts[0] : "general"
+      
+      // Get original filename from pathname
+      const filename = pathParts[pathParts.length - 1]
+      
+      // Determine file type from pathname
+      const ext = filename.split(".").pop()?.toLowerCase() || ""
+      let fileType = "application/octet-stream"
+      if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext)) {
+        fileType = `image/${ext === "jpg" ? "jpeg" : ext}`
+      } else if (["mp4", "webm", "mov", "avi"].includes(ext)) {
+        fileType = `video/${ext}`
+      }
+
+      return {
+        id: blob.pathname, // Use pathname as unique ID
+        name: filename,
+        file_path: blob.url,
+        file_type: fileType,
+        file_size: blob.size,
+        category,
+        description: "", // Blob doesn't store custom metadata, so description is empty
+        created_at: blob.uploadedAt.toISOString(),
+      }
+    })
+
+    // Sort by created_at descending (newest first)
+    assets.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    return NextResponse.json(assets)
+  } catch (error) {
+    console.error("Error listing assets:", error)
+    return NextResponse.json({ error: "Failed to list assets" }, { status: 500 })
   }
-
-  return NextResponse.json(data)
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-  const formData = await request.formData()
-  
-  const file = formData.get("file") as File
-  const category = formData.get("category") as string || "general"
-  const description = formData.get("description") as string || ""
+  try {
+    const formData = await request.formData()
 
-  if (!file) {
-    return NextResponse.json({ error: "No file provided" }, { status: 400 })
-  }
+    const file = formData.get("file") as File
+    const category = (formData.get("category") as string) || "general"
 
-  const fileExt = file.name.split(".").pop()
-  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-  const filePath = `${category}/${fileName}`
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+    }
 
-  // Upload to Supabase Storage
-  const { error: uploadError } = await supabase.storage
-    .from("portfolio-assets")
-    .upload(filePath, file)
+    // Create a unique filename with category prefix
+    const fileExt = file.name.split(".").pop()
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    const filePath = `${category}/${fileName}`
 
-  if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 500 })
-  }
+    // Upload to Vercel Blob (public access for direct URL usage)
+    const blob = await put(filePath, file, {
+      access: "public",
+    })
 
-  // Get public URL
-  const { data: urlData } = supabase.storage
-    .from("portfolio-assets")
-    .getPublicUrl(filePath)
-
-  // Save to database
-  const { data, error: dbError } = await supabase
-    .from("assets")
-    .insert({
+    // Return asset data matching the expected interface
+    const asset = {
+      id: blob.pathname,
       name: file.name,
-      file_path: urlData.publicUrl,
+      file_path: blob.url,
       file_type: file.type,
       file_size: file.size,
       category,
-      description,
-    })
-    .select()
-    .single()
+      description: "",
+      created_at: new Date().toISOString(),
+    }
 
-  if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 })
+    return NextResponse.json(asset)
+  } catch (error) {
+    console.error("Upload error:", error)
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 })
   }
-
-  return NextResponse.json(data)
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = await createClient()
-  const { searchParams } = new URL(request.url)
-  const id = searchParams.get("id")
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
 
-  if (!id) {
-    return NextResponse.json({ error: "No id provided" }, { status: 400 })
-  }
-
-  // Get the asset first to delete from storage
-  const { data: asset } = await supabase
-    .from("assets")
-    .select("file_path")
-    .eq("id", id)
-    .single()
-
-  if (asset) {
-    // Extract path from URL for storage deletion
-    const url = new URL(asset.file_path)
-    const storagePath = url.pathname.split("/portfolio-assets/")[1]
-    if (storagePath) {
-      await supabase.storage.from("portfolio-assets").remove([storagePath])
+    if (!id) {
+      return NextResponse.json({ error: "No id provided" }, { status: 400 })
     }
+
+    // First, get the blob URL from the list to delete it
+    const { blobs } = await list()
+    const blobToDelete = blobs.find((b) => b.pathname === id)
+
+    if (blobToDelete) {
+      await del(blobToDelete.url)
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Delete error:", error)
+    return NextResponse.json({ error: "Delete failed" }, { status: 500 })
   }
-
-  const { error } = await supabase.from("assets").delete().eq("id", id)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ success: true })
 }
