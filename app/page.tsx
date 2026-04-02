@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import PortfolioGallery from "@/components/portfolio-gallery"
 
 export default function Home() {
   useEffect(() => {
@@ -177,62 +178,12 @@ export default function Home() {
           </div>
         </div>
 
-        {/* WORK SECTION */}
-        <section id="work" className="container">
-          <div className="sticky-type">ARCHIVO</div>
-
-          {/* Project 1 */}
-          <div className="project-row">
-            <div className="project-info">
-              <span style={{ fontFamily: "var(--syne)", color: "var(--accent)" }}>001 / MODA</span>
-              <h3 className="huge-type" style={{ fontSize: "6rem", margin: "20px 0" }}>
-                NOIR
-              </h3>
-              <p>
-                Una inmersión profunda en texturas monocromáticas y diseños digitales de alto contraste para una casa de costura parisina.
-              </p>
-              <div className="divider"></div>
-              <p>AÑO: 2024</p>
-            </div>
-            <div className="project-media">
-              <img
-                src="https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&q=80&w=1000"
-                alt="Noir Project"
-                className="project-image"
-              />
-              <div className="floating-label huge-type outline-text" style={{ fontSize: "8rem" }}>
-                SOMBRA
-              </div>
-            </div>
+        {/* WORK SECTION - Dynamic Portfolio Gallery */}
+        <section id="work">
+          <div className="container">
+            <div className="sticky-type">ARCHIVO</div>
           </div>
-
-          {/* Project 2 */}
-          <div className="project-row" style={{ flexDirection: "row-reverse" }}>
-            <div className="project-info">
-              <span style={{ fontFamily: "var(--syne)", color: "var(--accent)" }}>002 / ARQUITECTURA</span>
-              <h3 className="huge-type" style={{ fontSize: "6rem", margin: "20px 0" }}>
-                BRUTO
-              </h3>
-              <p>
-                Experiencia web conceptual para una firma de ingeniería estructural enfocada en estructuras de hormigón monolítico.
-              </p>
-              <div className="divider"></div>
-              <p>AÑO: 2023</p>
-            </div>
-            <div className="project-media">
-              <img
-                src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1000"
-                alt="Brute Project"
-                className="project-image"
-              />
-              <div
-                className="floating-label huge-type outline-text"
-                style={{ fontSize: "8rem", right: "auto", left: "-100px" }}
-              >
-                HORMIGÓN
-              </div>
-            </div>
-          </div>
+          <PortfolioGallery />
         </section>
 
         {/* OVERLAPPING COMPOSITION SECTION */}

@@ -17,13 +17,13 @@ interface Asset {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
-const categories = ["hero", "proyectos", "about", "general"]
+const categories = ["FOTOGRAFIA", "PRODUCCION AUDIOVISUAL", "EDICION VIDEO"]
 
 export default function AdminPage() {
   const { data: assets, error, mutate } = useSWR<Asset[]>("/api/assets", fetcher)
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState("general")
+  const [selectedCategory, setSelectedCategory] = useState("FOTOGRAFIA")
   const [description, setDescription] = useState("")
   const [filterCategory, setFilterCategory] = useState<string | null>(null)
 

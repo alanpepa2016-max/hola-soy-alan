@@ -1,18 +1,45 @@
-import { put, list, del } from "@vercel/blob"
+import { put, list, del, head } from "@vercel/blob"
 import { NextRequest, NextResponse } from "next/server"
+
+const METADATA_FILE = "assets-metadata.json"
+
+interface AssetMetadata {
+  [pathname: string]: {
+    description: string
+    category: string
+  }
+}
+
+async function getMetadata(): Promise<AssetMetadata> {
+  try {
+    const blob = await head(METADATA_FILE)
+    if (blob) {
+      // Fetch the metadata file content directly
+      const { get } = await import("@vercel/blob")
+      const result = await get(METADATA_FILE, { access: "private" })
+      if (result && result.stream) {
+        const text = await new Response(result.stream).text()
+        return JSON.parse(text)
+      }
+    }
+  } catch {
+    // File doesn't exist yet
+  }
+  return {}
+}
 
 export async function GET() {
   try {
     const { blobs } = await list()
+    const metadata = await getMetadata()
+
+    // Filter out the metadata file from the list
+    const assetBlobs = blobs.filter(b => b.pathname !== METADATA_FILE)
 
     // Transform blob data to match the Asset interface expected by the frontend
-    const assets = blobs.map((blob) => {
-      // Extract category and description from pathname (format: category/timestamp-random.ext)
-      const pathParts = blob.pathname.split("/")
-      const category = pathParts.length > 1 ? pathParts[0] : "general"
-      
+    const assets = assetBlobs.map((blob) => {
       // Get original filename from pathname
-      const filename = pathParts[pathParts.length - 1]
+      const filename = blob.pathname.split("/").pop() || blob.pathname
       
       // Determine file type from pathname
       const ext = filename.split(".").pop()?.toLowerCase() || ""
@@ -26,14 +53,17 @@ export async function GET() {
       // For private blobs, use our delivery route instead of the direct blob URL
       const fileUrl = `/api/assets/file?pathname=${encodeURIComponent(blob.pathname)}`
 
+      // Get metadata for this asset
+      const assetMeta = metadata[blob.pathname] || { description: "", category: "general" }
+
       return {
         id: blob.pathname, // Use pathname as unique ID
         name: filename,
         file_path: fileUrl,
         file_type: fileType,
         file_size: blob.size,
-        category,
-        description: "", // Blob doesn't store custom metadata, so description is empty
+        category: assetMeta.category,
+        description: assetMeta.description,
         created_at: blob.uploadedAt.toISOString(),
       }
     })
@@ -48,29 +78,40 @@ export async function GET() {
   }
 }
 
+async function saveMetadata(metadata: AssetMetadata): Promise<void> {
+  await put(METADATA_FILE, JSON.stringify(metadata, null, 2), {
+    access: "private",
+    addRandomSuffix: false,
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
 
     const file = formData.get("file") as File
     const category = (formData.get("category") as string) || "general"
+    const description = (formData.get("description") as string) || ""
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Create a unique filename with category prefix
+    // Create a unique filename
     const fileExt = file.name.split(".").pop()
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-    const filePath = `${category}/${fileName}`
 
     // Upload to Vercel Blob (private access)
-    const blob = await put(filePath, file, {
+    const blob = await put(fileName, file, {
       access: "private",
     })
 
+    // Save metadata
+    const metadata = await getMetadata()
+    metadata[blob.pathname] = { description, category }
+    await saveMetadata(metadata)
+
     // Return asset data matching the expected interface
-    // Use our delivery route for private blobs
     const asset = {
       id: blob.pathname,
       name: file.name,
@@ -78,7 +119,7 @@ export async function POST(request: NextRequest) {
       file_type: file.type,
       file_size: file.size,
       category,
-      description: "",
+      description,
       created_at: new Date().toISOString(),
     }
 
@@ -104,6 +145,11 @@ export async function DELETE(request: NextRequest) {
 
     if (blobToDelete) {
       await del(blobToDelete.url)
+      
+      // Also delete metadata
+      const metadata = await getMetadata()
+      delete metadata[id]
+      await saveMetadata(metadata)
     }
 
     return NextResponse.json({ success: true })
