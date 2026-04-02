@@ -23,10 +23,13 @@ export async function GET() {
         fileType = `video/${ext}`
       }
 
+      // For private blobs, use our delivery route instead of the direct blob URL
+      const fileUrl = `/api/assets/file?pathname=${encodeURIComponent(blob.pathname)}`
+
       return {
         id: blob.pathname, // Use pathname as unique ID
         name: filename,
-        file_path: blob.url,
+        file_path: fileUrl,
         file_type: fileType,
         file_size: blob.size,
         category,
@@ -61,16 +64,17 @@ export async function POST(request: NextRequest) {
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
     const filePath = `${category}/${fileName}`
 
-    // Upload to Vercel Blob (public access for direct URL usage)
+    // Upload to Vercel Blob (private access)
     const blob = await put(filePath, file, {
-      access: "public",
+      access: "private",
     })
 
     // Return asset data matching the expected interface
+    // Use our delivery route for private blobs
     const asset = {
       id: blob.pathname,
       name: file.name,
-      file_path: blob.url,
+      file_path: `/api/assets/file?pathname=${encodeURIComponent(blob.pathname)}`,
       file_type: file.type,
       file_size: file.size,
       category,
