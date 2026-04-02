@@ -79,99 +79,79 @@ export default function PortfolioGallery() {
               {categoryAssets.map((asset, index) => (
                 <div
                   key={asset.id}
-                  onClick={() => setLightboxAsset(asset)}
                   style={{
-                    cursor: "pointer",
-                    position: "relative",
-                    overflow: "hidden",
-                    aspectRatio: index % 5 === 0 ? "4/5" : "1/1",
-                    background: "#111",
+                    display: "flex",
+                    flexDirection: "column",
                   }}
                 >
-                  {asset.file_type.startsWith("image/") ? (
-                    <img
-                      src={asset.file_path}
-                      alt={asset.name}
+                  {/* Description above the image */}
+                  {asset.description && (
+                    <p
                       style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        transition: "transform 0.5s ease",
+                        fontFamily: "var(--syne)",
+                        fontSize: "0.85rem",
+                        color: "#888",
+                        marginBottom: "12px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
                       }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "scale(1.05)"
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "scale(1)"
-                      }}
-                    />
-                  ) : asset.file_type.startsWith("video/") ? (
-                    <video
-                      src={asset.file_path}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        transition: "transform 0.5s ease",
-                      }}
-                      muted
-                      loop
-                      playsInline
-                      onMouseEnter={(e) => {
-                        e.currentTarget.play()
-                        e.currentTarget.style.transform = "scale(1.05)"
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.pause()
-                        e.currentTarget.currentTime = 0
-                        e.currentTarget.style.transform = "scale(1)"
-                      }}
-                    />
-                  ) : null}
-
-                  {/* Hover Overlay */}
+                    >
+                      {asset.description}
+                    </p>
+                  )}
+                  
+                  {/* Media container with B&W effect */}
                   <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)",
-                      opacity: 0,
-                      transition: "opacity 0.3s ease",
-                      display: "flex",
-                      alignItems: "flex-end",
-                      padding: "20px",
-                    }}
+                    className="gallery-item"
+                    onClick={() => setLightboxAsset(asset)}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = "1"
+                      const video = e.currentTarget.querySelector("video")
+                      if (video) video.play()
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = "0"
+                      const video = e.currentTarget.querySelector("video")
+                      if (video) {
+                        video.pause()
+                        video.currentTime = 0
+                      }
+                    }}
+                    style={{
+                      cursor: "pointer",
+                      position: "relative",
+                      overflow: "hidden",
+                      aspectRatio: index % 5 === 0 ? "4/5" : "1/1",
+                      background: "#111",
                     }}
                   >
-                    <div>
-                      <p
+                    {asset.file_type.startsWith("image/") ? (
+                      <img
+                        src={asset.file_path}
+                        alt={asset.name}
+                        className="gallery-media"
                         style={{
-                          fontFamily: "var(--syne)",
-                          fontWeight: 600,
-                          fontSize: "1rem",
-                          color: "#fff",
-                          margin: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          filter: "grayscale(100%)",
+                          transition: "filter 0.5s ease, transform 0.5s ease",
                         }}
-                      >
-                        {asset.name}
-                      </p>
-                      {asset.description && (
-                        <p
-                          style={{
-                            fontSize: "0.85rem",
-                            color: "#aaa",
-                            margin: "4px 0 0",
-                          }}
-                        >
-                          {asset.description}
-                        </p>
-                      )}
-                    </div>
+                      />
+                    ) : asset.file_type.startsWith("video/") ? (
+                      <video
+                        src={asset.file_path}
+                        className="gallery-media"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          filter: "grayscale(100%)",
+                          transition: "filter 0.5s ease, transform 0.5s ease",
+                        }}
+                        muted
+                        loop
+                        playsInline
+                      />
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -265,6 +245,14 @@ export default function PortfolioGallery() {
       )}
 
       <style jsx>{`
+        :global(.gallery-item:hover .gallery-media) {
+          filter: grayscale(0%) !important;
+          transform: scale(1.05);
+        }
+        :global(.gallery-item:hover video.gallery-media) {
+          filter: grayscale(0%) !important;
+          transform: scale(1.05);
+        }
         @media (max-width: 768px) {
           div[style*="grid-template-columns: repeat(3"] {
             grid-template-columns: repeat(2, 1fr) !important;

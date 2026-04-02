@@ -82,6 +82,7 @@ async function saveMetadata(metadata: AssetMetadata): Promise<void> {
   await put(METADATA_FILE, JSON.stringify(metadata, null, 2), {
     access: "private",
     addRandomSuffix: false,
+    allowOverwrite: true,
   })
 }
 
